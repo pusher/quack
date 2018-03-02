@@ -1,0 +1,11 @@
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: quack:system:api-server-auth
+rules:
+  - apiGroups:
+      - "quack.pusher.com"
+    resources:
+      - admissionreviews
+    verbs:
+      - create

@@ -1,0 +1,50 @@
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: quack
+webhooks:
+  - name: quack.pusher.com
+    clientConfig:
+      service:
+        name: quack
+        namespace: quack
+        path: /apis/quack.pusher.com/v1alpha1/admissionreviews
+      caBundle: ""
+    rules:
+      - operations: ["CREATE", "UPDATE"]
+        apiGroups: ["*"]
+        apiVersions: ["*"]
+        resources: ["deployments"]
+        # - configmaps
+        # - endpoints
+        # - persistentvolumeclaims
+        # - replicationcontrollers
+        # - replicationcontrollers/scale
+        # - serviceaccounts
+        # - services
+        # - bindings
+        # - events
+        # - limitranges
+        # - namespaces/status
+        # - replicationcontrollers/status
+        # - resourcequotas
+        # - resourcequotas/status
+        # - namespaces
+        # - daemonsets
+        # - deployments
+        # - deployments/scale
+        # - replicasets
+        # - replicasets/scale
+        # - statefulsets
+        # - horizontalpodautoscalers
+        # - cronjobs
+        # - jobs
+        # - replicationcontrollers/scale
+        # - poddisruptionbudgets
+    failurePolicy: Fail
+    namespaceSelector:
+      matchExpressions:
+      - key: quack
+        operator: NotIn
+        values:
+        - "false"
