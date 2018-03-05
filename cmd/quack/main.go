@@ -36,7 +36,10 @@ func runAdmissionServer(admissionHooks ...admissionHook) {
 		castSlice = append(castSlice, admissionHooks[i])
 	}
 	cmd := server.NewCommandStartAdmissionServer(os.Stdout, os.Stderr, stopCh, castSlice...)
-	cmd.Flags().AddGoFlagSet(flag.CommandLine)
+	cmd.Short = "Launch Quack Templating Server"
+	cmd.Long = "Launch Quack Templating Server"
+	cmd.PersistentFlags().AddGoFlagSet(flag.CommandLine)
+	flag.CommandLine.Parse([]string{})
 	if err := cmd.Execute(); err != nil {
 		glog.Fatal(err)
 	}
