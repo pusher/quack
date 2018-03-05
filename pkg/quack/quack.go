@@ -97,7 +97,7 @@ func (ah *AdmissionHook) Admit(req *admissionv1beta1.AdmissionRequest) *admissio
 	}
 
 	// If the patch is non-zero, append it
-	if len(patchBytes) > 0 {
+	if string(patchBytes) != "[]" {
 		glog.V(2).Infof("Patching %s", requestName)
 		glog.V(4).Infof("Patch for %s: %s", requestName, string(patchBytes))
 		resp.Patch = patchBytes
