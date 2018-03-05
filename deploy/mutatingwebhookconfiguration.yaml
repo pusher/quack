@@ -14,33 +14,17 @@ webhooks:
       - operations: ["CREATE", "UPDATE"]
         apiGroups: ["*"]
         apiVersions: ["*"]
-        resources: ["deployments"]
-        # - configmaps
-        # - endpoints
+        resources:
+          - configmaps
         # - persistentvolumeclaims
-        # - replicationcontrollers
-        # - replicationcontrollers/scale
-        # - serviceaccounts
-        # - services
-        # - bindings
-        # - events
-        # - limitranges
-        # - namespaces/status
-        # - replicationcontrollers/status
-        # - resourcequotas
-        # - resourcequotas/status
-        # - namespaces
-        # - daemonsets
-        # - deployments
-        # - deployments/scale
+          - daemonsets
+          - deployments
         # - replicasets
-        # - replicasets/scale
-        # - statefulsets
+          - statefulsets
         # - horizontalpodautoscalers
         # - cronjobs
         # - jobs
-        # - replicationcontrollers/scale
-        # - poddisruptionbudgets
+          - secrets
     failurePolicy: Fail
     namespaceSelector:
       matchExpressions:
