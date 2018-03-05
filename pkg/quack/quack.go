@@ -31,10 +31,18 @@ func (ah AdmissionHook) MutatingResource() (schema.GroupVersionResource, string)
 
 // Admit is the actual business logic of the webhook.
 func (ah AdmissionHook) Admit(req *admissionv1beta1.AdmissionRequest) *admissionv1beta1.AdmissionResponse {
-	glog.Infof("Processing %s %s", req.Kind, podID(req.Namespace, req.Name))
-
 	resp := &admissionv1beta1.AdmissionResponse{}
 	resp.UID = req.UID
+
+	// Skip operations that aren't create or update
+	if req.Operation != admissionv1beta1.Create &&
+		req.Operation != admissionv1beta1.Update {
+		glog.Infof("Skipping %s request for %s %s", req.Operation, req.Kind, podID(req.Namespace, req.Name))
+		resp.Allowed = true
+		return resp
+	}
+
+	glog.Infof("Processing %s request for %s %s", req.Operation, req.Kind, podID(req.Namespace, req.Name))
 	resp.Allowed = true
 	return resp
 }
