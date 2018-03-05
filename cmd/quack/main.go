@@ -14,8 +14,6 @@ import (
 	"k8s.io/apiserver/pkg/util/logs"
 )
 
-type admissionHook apiserver.AdmissionHook
-
 func main() {
 	flagset := pflag.NewFlagSet("quack", pflag.ExitOnError)
 
@@ -28,7 +26,7 @@ func main() {
 }
 
 // Originally from: https://github.com/openshift/generic-admission-server/blob/v1.9.0/pkg/cmd/cmd.go
-func runAdmissionServer(flagset *pflag.FlagSet, admissionHooks ...admissionHook) {
+func runAdmissionServer(flagset *pflag.FlagSet, admissionHooks ...apiserver.AdmissionHook) {
 	logs.InitLogs()
 	defer logs.FlushLogs()
 
@@ -38,13 +36,7 @@ func runAdmissionServer(flagset *pflag.FlagSet, admissionHooks ...admissionHook)
 
 	stopCh := genericapiserver.SetupSignalHandler()
 
-	// done to avoid cannot use admissionHooks (type []AdmissionHook) as type []apiserver.AdmissionHook in argument to "github.com/openshift/kubernetes-namespace-reservation/pkg/genericadmissionserver/cmd/server".NewCommandStartAdmissionServer
-	var castSlice []apiserver.AdmissionHook
-	for i := range admissionHooks {
-		castSlice = append(castSlice, admissionHooks[i])
-	}
-
-	cmd := server.NewCommandStartAdmissionServer(os.Stdout, os.Stderr, stopCh, castSlice...)
+	cmd := server.NewCommandStartAdmissionServer(os.Stdout, os.Stderr, stopCh, admissionHooks...)
 	cmd.Short = "Launch Quack Templating Server"
 	cmd.Long = "Launch Quack Templating Server"
 
