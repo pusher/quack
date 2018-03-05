@@ -200,6 +200,12 @@
   revision = "32fa128f234d041f196a9f3e0fea5ac9772c08e1"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/mattbaird/jsonpatch"
+  packages = ["."]
+  revision = "81af80346b1a01caae0cbc27fd3c1ba5b11e189f"
+
+[[projects]]
   name = "github.com/matttproud/golang_protobuf_extensions"
   packages = ["pbutil"]
   revision = "3247c84500bff8d9fb6d579d800f20b3e091582c"
@@ -225,7 +231,7 @@
 
 [[projects]]
   name = "github.com/openshift/generic-admission-server"
-  packages = ["pkg/apiserver","pkg/cmd","pkg/cmd/server","pkg/registry/admissionreview"]
+  packages = ["pkg/apiserver","pkg/cmd/server","pkg/registry/admissionreview"]
   revision = "0d37a6c7bb2c96d2363c0fd934d2e7cdb7d90ebc"
   version = "v1.9.0"
 
@@ -246,6 +252,12 @@
   packages = ["."]
   revision = "5f041e8faa004a95c88a202771f4cc3e991971e6"
   version = "v2.0.1"
+
+[[projects]]
+  name = "github.com/pmezard/go-difflib"
+  packages = ["difflib"]
+  revision = "792786c7400a136282c1664665ae0a8db921c6c2"
+  version = "v1.0.0"
 
 [[projects]]
   name = "github.com/prometheus/client_golang"
@@ -282,6 +294,12 @@
   packages = ["."]
   revision = "e57e3eeb33f795204c1ca35f56c44f83227c6e66"
   version = "v1.0.0"
+
+[[projects]]
+  name = "github.com/stretchr/testify"
+  packages = ["assert"]
+  revision = "12b6f73e6084dad08a7c6e575284b177ecafbc71"
+  version = "v1.2.1"
 
 [[projects]]
   name = "github.com/ugorji/go"
@@ -376,6 +394,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "50bb825865f1dae5c4b94698697445663a99754028b95268f7011819e760fcd2"
+  inputs-digest = "e638d089b6df43523181cd74ffc0cc9f51c87aa8b7856d34b0d489352afc46d9"
   solver-name = "gps-cdcl"
   solver-version = 1

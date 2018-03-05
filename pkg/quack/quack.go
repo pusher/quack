@@ -2,16 +2,22 @@ package quack
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"net/http"
 
 	"github.com/golang/glog"
+	"github.com/mattbaird/jsonpatch"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
+)
+
+const (
+	lastAppliedConfigPath = "/metadata/annotations/kubectl.kubernetes.io~1last-applied-configuration"
 )
 
 // AdmissionHook implements the OpenShift MutatingAdmissionHook interface.
@@ -62,27 +68,30 @@ func (ah *AdmissionHook) Admit(req *admissionv1beta1.AdmissionRequest) *admissio
 
 	values, err := getValues(ah.client, ah.ValuesMapNamespace, ah.ValuesMapName)
 	if err != nil {
-		glog.Errorf("Failed to get template values: %v", err)
-		resp.Allowed = false
-		resp.Result = &metav1.Status{
-			Status: metav1.StatusFailure, Code: http.StatusInternalServerError, Reason: metav1.StatusReasonInternalError,
-			Message: fmt.Sprintf("failed to get template values: %v", err),
-		}
-		return resp
+		return errorResponse(resp, "Failed to get template values: %v", err)
 	}
 
-	glog.V(4).Infof("Input for %s: %s", requestName, string(req.Object.Raw))
+	glog.V(6).Infof("Input for %s: %s", requestName, string(req.Object.Raw))
 	output, err := renderTemplate(req.Object.Raw, values)
 	if err != nil {
-		glog.Errorf("Error rendering template: %v", err)
-		resp.Allowed = false
-		resp.Result = &metav1.Status{
-			Status: metav1.StatusFailure, Code: http.StatusInternalServerError, Reason: metav1.StatusReasonInternalError,
-			Message: fmt.Sprintf("Error rendering template: %v", err),
-		}
-		return resp
+		return errorResponse(resp, "Error rendering template: %v", err)
 	}
-	glog.V(4).Infof("Output for %s: %s", requestName, output)
+	glog.V(6).Infof("Output for %s: %s", requestName, output)
+
+	patchBytes, err := createPatch(req.Object.Raw, output)
+	if err != nil {
+		return errorResponse(resp, "Error creating patch: %v", err)
+	}
+
+	if len(patchBytes) > 0 {
+		glog.V(2).Infof("Patching %s", requestName)
+		glog.V(4).Infof("Patch for %s: %s", requestName, string(patchBytes))
+		resp.Patch = patchBytes
+		resp.PatchType = func() *admissionv1beta1.PatchType {
+			pt := admissionv1beta1.PatchTypeJSONPatch
+			return &pt
+		}()
+	}
 
 	resp.Allowed = true
 	return resp
@@ -108,6 +117,38 @@ func getValues(client *kubernetes.Clientset, namespace string, name string) (map
 		return nil, fmt.Errorf("couldn't get configmap: %v", err)
 	}
 	return cm.Data, nil
+}
+
+func createPatch(old []byte, new []byte) ([]byte, error) {
+	patch, err := jsonpatch.CreatePatch(old, new)
+	if err != nil {
+		return nil, fmt.Errorf("error calculating patch: %v", err)
+	}
+
+	allowedOps := []jsonpatch.JsonPatchOperation{}
+	for _, op := range patch {
+		// Don't patch the lastAppliedConfig created by kubectl
+		if op.Path == lastAppliedConfigPath {
+			continue
+		}
+		allowedOps = append(allowedOps, op)
+	}
+
+	patchBytes, err := json.Marshal(allowedOps)
+	if err != nil {
+		return nil, fmt.Errorf("error marshalling patch: %v", err)
+	}
+	return patchBytes, nil
+}
+
+func errorResponse(resp *admissionv1beta1.AdmissionResponse, message string, args ...interface{}) *admissionv1beta1.AdmissionResponse {
+	glog.Errorf(message, args...)
+	resp.Allowed = false
+	resp.Result = &metav1.Status{
+		Status: metav1.StatusFailure, Code: http.StatusInternalServerError, Reason: metav1.StatusReasonInternalError,
+		Message: fmt.Sprintf(message, args...),
+	}
+	return resp
 }
 
 func podID(namespace string, name string) string {
