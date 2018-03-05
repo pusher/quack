@@ -21,14 +21,23 @@ spec:
           args:
             - --tls-cert-file=/etc/certs/cert.pem
             - --tls-private-key-file=/etc/certs/key.pem
+            - --audit-log-path=-
+            - --audit-policy-file=/etc/config/audit.yaml
+            - --v=2
           volumeMounts:
           - name: certs
             mountPath: /etc/certs
+            readOnly: true
+          - name: config
+            mountPath: /etc/config
             readOnly: true
       volumes:
       - name: certs
         secret:
           secretName: quack-certs
+      - name: config
+        configMap:
+          name: quack-config
       tolerations:
       - key: node-role.kubernetes.io/master
         operator: Exists
