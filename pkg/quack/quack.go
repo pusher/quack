@@ -14,13 +14,13 @@ import (
 type AdmissionHook struct{}
 
 // Initialize configures the AdmissionHook.
-func (ah AdmissionHook) Initialize(kubeClientConfig *restclient.Config, stopCh <-chan struct{}) error {
+func (ah *AdmissionHook) Initialize(kubeClientConfig *restclient.Config, stopCh <-chan struct{}) error {
 	glog.Info("Webhook Initialization Complete.")
 	return nil
 }
 
 // MutatingResource defines where the Webhook is hosted.
-func (ah AdmissionHook) MutatingResource() (schema.GroupVersionResource, string) {
+func (ah *AdmissionHook) MutatingResource() (schema.GroupVersionResource, string) {
 	return schema.GroupVersionResource{
 			Group:    "quack.pusher.com",
 			Version:  "v1alpha1",
@@ -30,7 +30,7 @@ func (ah AdmissionHook) MutatingResource() (schema.GroupVersionResource, string)
 }
 
 // Admit is the actual business logic of the webhook.
-func (ah AdmissionHook) Admit(req *admissionv1beta1.AdmissionRequest) *admissionv1beta1.AdmissionResponse {
+func (ah *AdmissionHook) Admit(req *admissionv1beta1.AdmissionRequest) *admissionv1beta1.AdmissionResponse {
 	resp := &admissionv1beta1.AdmissionResponse{}
 	resp.UID = req.UID
 
