@@ -17,11 +17,14 @@ import (
 func main() {
 	flagset := pflag.NewFlagSet("quack", pflag.ExitOnError)
 
+	// quack.AdmissionHook is the main package
 	ah := &quack.AdmissionHook{}
 
+	// Set flags to populate admission hook configuration
 	flagset.StringVarP(&ah.ValuesMapName, "values-configmap", "c", "quack-values", "Defines the name of the ConfigMap to load templating values from")
 	flagset.StringVarP(&ah.ValuesMapNamespace, "values-configmap-namespace", "n", "quack", "Defines the namespace to load the Values ConfigMap from")
 
+	// Run server
 	runAdmissionServer(flagset, ah)
 }
 
@@ -40,8 +43,12 @@ func runAdmissionServer(flagset *pflag.FlagSet, admissionHooks ...apiserver.Admi
 	cmd.Short = "Launch Quack Templating Server"
 	cmd.Long = "Launch Quack Templating Server"
 
-	cmd.PersistentFlags().AddGoFlagSet(flag.CommandLine)
+	// Add admission hook flags
 	cmd.PersistentFlags().AddFlagSet(flagset)
+
+	// Flags for glog
+	cmd.PersistentFlags().AddGoFlagSet(flag.CommandLine)
+	// Fix glog printing "Error: logging before flag.Parse"
 	flag.CommandLine.Parse([]string{})
 
 	if err := cmd.Execute(); err != nil {

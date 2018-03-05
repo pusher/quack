@@ -23,13 +23,16 @@ const (
 // AdmissionHook implements the OpenShift MutatingAdmissionHook interface.
 // https://github.com/openshift/generic-admission-server/blob/v1.9.0/pkg/apiserver/apiserver.go#L45
 type AdmissionHook struct {
-	client             *kubernetes.Clientset
-	ValuesMapName      string
-	ValuesMapNamespace string
+	client             *kubernetes.Clientset // Kubernetes client for calling Api
+	ValuesMapName      string                // Source of templating values
+	ValuesMapNamespace string                // Namespace the configmap lives in
 }
 
 // Initialize configures the AdmissionHook.
+//
+// Initializes connection Kubernetes Client
 func (ah *AdmissionHook) Initialize(kubeClientConfig *restclient.Config, stopCh <-chan struct{}) error {
+	// Initialise a Kubernetes client
 	client, err := kubernetes.NewForConfig(kubeClientConfig)
 	if err != nil {
 		return fmt.Errorf("failed to intialise kubernetes clientset: %v", err)
@@ -51,6 +54,12 @@ func (ah *AdmissionHook) MutatingResource() (schema.GroupVersionResource, string
 }
 
 // Admit is the actual business logic of the webhook.
+// This is the method that processes the request to the admission controller.
+//
+// Checks the operation is a create or update operation.
+// Loads the template values from the configmap.
+// Templates the values into the raw object (json) from the admission request.
+// Calculates a JSON Patch to append to the admission response.
 func (ah *AdmissionHook) Admit(req *admissionv1beta1.AdmissionRequest) *admissionv1beta1.AdmissionResponse {
 	resp := &admissionv1beta1.AdmissionResponse{}
 	resp.UID = req.UID
@@ -66,11 +75,13 @@ func (ah *AdmissionHook) Admit(req *admissionv1beta1.AdmissionRequest) *admissio
 
 	glog.V(2).Infof("Processing %s request for %s", req.Operation, requestName)
 
+	// Load template values from configmap
 	values, err := getValues(ah.client, ah.ValuesMapNamespace, ah.ValuesMapName)
 	if err != nil {
 		return errorResponse(resp, "Failed to get template values: %v", err)
 	}
 
+	// Run Templating
 	glog.V(6).Infof("Input for %s: %s", requestName, string(req.Object.Raw))
 	output, err := renderTemplate(req.Object.Raw, values)
 	if err != nil {
@@ -78,11 +89,14 @@ func (ah *AdmissionHook) Admit(req *admissionv1beta1.AdmissionRequest) *admissio
 	}
 	glog.V(6).Infof("Output for %s: %s", requestName, output)
 
+	// Create a JSON Patch
+	// https://tools.ietf.org/html/rfc6902
 	patchBytes, err := createPatch(req.Object.Raw, output)
 	if err != nil {
 		return errorResponse(resp, "Error creating patch: %v", err)
 	}
 
+	// If the patch is non-zero, append it
 	if len(patchBytes) > 0 {
 		glog.V(2).Infof("Patching %s", requestName)
 		glog.V(4).Infof("Patch for %s: %s", requestName, string(patchBytes))
