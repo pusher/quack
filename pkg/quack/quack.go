@@ -26,6 +26,7 @@ type AdmissionHook struct {
 	client             *kubernetes.Clientset // Kubernetes client for calling Api
 	ValuesMapName      string                // Source of templating values
 	ValuesMapNamespace string                // Namespace the configmap lives in
+	RequiredAnnotation string                // Annotation required before templating
 }
 
 // Initialize configures the AdmissionHook.
@@ -73,6 +74,17 @@ func (ah *AdmissionHook) Admit(req *admissionv1beta1.AdmissionRequest) *admissio
 		return resp
 	}
 
+	// Skip requests that do not have the required annotation
+	annototationPresent, err := requestHasAnnotation(ah.RequiredAnnotation, req.Object.Raw)
+	if err != nil {
+		return errorResponse(resp, "Failed to read annotations: %v", err)
+	}
+	if !annototationPresent {
+		glog.V(2).Infof("Skipping %s request for %s: Required annotation not present.", req.Operation, requestName)
+		resp.Allowed = true
+		return resp
+	}
+
 	glog.V(2).Infof("Processing %s request for %s", req.Operation, requestName)
 
 	// Load template values from configmap
@@ -83,6 +95,7 @@ func (ah *AdmissionHook) Admit(req *admissionv1beta1.AdmissionRequest) *admissio
 
 	// Run Templating
 	glog.V(6).Infof("Input for %s: %s", requestName, string(req.Object.Raw))
+
 	output, err := renderTemplate(req.Object.Raw, values)
 	if err != nil {
 		return errorResponse(resp, "Error rendering template: %v", err)
@@ -153,6 +166,31 @@ func createPatch(old []byte, new []byte) ([]byte, error) {
 		return nil, fmt.Errorf("error marshalling patch: %v", err)
 	}
 	return patchBytes, nil
+}
+
+func requestHasAnnotation(requiredAnnotation string, raw []byte) (bool, error) {
+	if requiredAnnotation == "" {
+		return true, nil
+	}
+
+	// Fetch object meta into object
+	requestMeta := struct {
+		metav1.ObjectMeta `json:"metadata"`
+	}{
+		ObjectMeta: metav1.ObjectMeta{},
+	}
+	err := json.Unmarshal(raw, &requestMeta)
+	if err != nil {
+		return false, fmt.Errorf("failed ot unmarshal input: %v", err)
+	}
+
+	glog.V(6).Infof("Requested Object Annotions: %v", requestMeta.ObjectMeta.Annotations)
+
+	// Check required annotation exists in struct
+	if _, ok := requestMeta.ObjectMeta.Annotations[requiredAnnotation]; ok {
+		return true, nil
+	}
+	return false, nil
 }
 
 func errorResponse(resp *admissionv1beta1.AdmissionResponse, message string, args ...interface{}) *admissionv1beta1.AdmissionResponse {

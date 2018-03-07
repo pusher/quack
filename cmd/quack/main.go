@@ -23,6 +23,7 @@ func main() {
 	// Set flags to populate admission hook configuration
 	flagset.StringVarP(&ah.ValuesMapName, "values-configmap", "c", "quack-values", "Defines the name of the ConfigMap to load templating values from")
 	flagset.StringVarP(&ah.ValuesMapNamespace, "values-configmap-namespace", "n", "quack", "Defines the namespace to load the Values ConfigMap from")
+	flagset.StringVarP(&ah.RequiredAnnotation, "required-annotation", "a", "", "Require annotation on objects before templating them")
 
 	// Run server
 	runAdmissionServer(flagset, ah)
