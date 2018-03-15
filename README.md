@@ -58,6 +58,21 @@ Base64 encode your CA certificate bundle and substitute it for the `caBundle`
 field in the
 [MutatingWebhookConfiguration](deploy/mutatingwebhookconfiguration.yaml).
 
+The example [Daemonset](deploy/daemonset.yaml) expects a secret containing the
+certificate in the format as below:
+
+```yaml
+apiVersion: v1
+data:
+  cert.pem: <BASE64_ENCODED_CERTIFICATE>
+  key.pem: <BASE64_ENCODED_PRIVATE_KEY>
+kind: Secret
+metadata:
+  name: quack-certs
+  namespace: quack
+type: Opaque
+```
+
 ### Configuration
 Quack adopts the standard Kubernetes Generic API server flags (including
 Authentication and Authorization flags).
