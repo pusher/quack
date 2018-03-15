@@ -16,19 +16,15 @@ webhooks:
         apiVersions: ["*"]
         resources:
           - configmaps
-        # - persistentvolumeclaims
           - daemonsets
           - deployments
-        # - replicasets
           - statefulsets
-        # - horizontalpodautoscalers
-        # - cronjobs
-        # - jobs
-          - secrets
+          - ingresses
+          - services
     failurePolicy: Fail
     namespaceSelector:
       matchExpressions:
-      - key: quack
-        operator: NotIn
+      - key: quack.pusher.com/enabled
+        operator: In
         values:
-        - "false"
+        - "true"
