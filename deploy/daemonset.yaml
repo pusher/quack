@@ -20,7 +20,7 @@ spec:
       serviceAccountName: quack
       containers:
         - name: quack
-          image: quack
+          image: quay.io/pusher/quack:v0.1.0
           imagePullPolicy: Always
           args:
             - --tls-cert-file=/etc/certs/cert.pem
