@@ -1,6 +1,13 @@
 # Quack
 In-Cluster templating using the Go Template syntax.
 
+**Note:** This is a proof of concept in the early alpha stage.
+We are providing no guarantees.
+We also cannot provide support for Kubernetes configuration,
+Mutating Webhooks are currently beta and the required configuration is
+complex.
+Please see the [Installation](#installation) section for further detail.
+
 ## Table of contents
 * [Introduction](#introduction)
 * [Installation](#installation)
