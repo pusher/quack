@@ -18,6 +18,8 @@ import (
 
 const (
 	lastAppliedConfigPath = "/metadata/annotations/kubectl.kubernetes.io~1last-applied-configuration"
+	leftDelimAnnotation   = "quack.pusher.com/left-delim"
+	rightDelimAnnotation  = "quack.pusher.com/right-delim"
 )
 
 // AdmissionHook implements the OpenShift MutatingAdmissionHook interface.
@@ -96,7 +98,12 @@ func (ah *AdmissionHook) Admit(req *admissionv1beta1.AdmissionRequest) *admissio
 	// Run Templating
 	glog.V(6).Infof("Input for %s: %s", requestName, string(req.Object.Raw))
 
-	output, err := renderTemplate(req.Object.Raw, values)
+	delims, err := getDelims(req.Object.Raw)
+	if err != nil {
+		return errorResponse(resp, "Invalid delimiters: %v", err)
+	}
+
+	output, err := renderTemplate(req.Object.Raw, values, delims)
 	if err != nil {
 		return errorResponse(resp, "Error rendering template: %v", err)
 	}
@@ -124,8 +131,8 @@ func (ah *AdmissionHook) Admit(req *admissionv1beta1.AdmissionRequest) *admissio
 	return resp
 }
 
-func renderTemplate(input []byte, values map[string]string) ([]byte, error) {
-	tmpl, err := template.New("object").Parse(string(input))
+func renderTemplate(input []byte, values map[string]string, delims delimiters) ([]byte, error) {
+	tmpl, err := template.New("object").Delims(delims.left, delims.right).Parse(string(input))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse template: %v", err)
 	}
@@ -191,6 +198,45 @@ func requestHasAnnotation(requiredAnnotation string, raw []byte) (bool, error) {
 		return true, nil
 	}
 	return false, nil
+}
+
+type delimiters struct {
+	left  string
+	right string
+}
+
+func getDelims(raw []byte) (delimiters, error) {
+	// Fetch object meta into object
+	requestMeta := struct {
+		metav1.ObjectMeta `json:"metadata"`
+	}{
+		ObjectMeta: metav1.ObjectMeta{},
+	}
+	err := json.Unmarshal(raw, &requestMeta)
+	if err != nil {
+		return delimiters{}, fmt.Errorf("failed ot unmarshal input: %v", err)
+	}
+
+	glog.V(6).Infof("Requested Object Annotions: %v", requestMeta.ObjectMeta.Annotations)
+
+	delims := delimiters{}
+	if left, ok := requestMeta.ObjectMeta.Annotations[leftDelimAnnotation]; !ok {
+		return delimiters{}, nil
+	} else {
+		if left == "" {
+			return delimiters{}, fmt.Errorf("left delimiter must not be empty")
+		}
+		delims.left = left
+	}
+	if right, ok := requestMeta.ObjectMeta.Annotations[rightDelimAnnotation]; !ok {
+		return delimiters{}, nil
+	} else {
+		if right == "" {
+			return delimiters{}, fmt.Errorf("right delimiter must not be empty")
+		}
+		delims.right = right
+	}
+	return delims, nil
 }
 
 func errorResponse(resp *admissionv1beta1.AdmissionResponse, message string, args ...interface{}) *admissionv1beta1.AdmissionResponse {
