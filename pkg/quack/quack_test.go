@@ -143,6 +143,42 @@ func TestRequestHasAnnotation(t *testing.T) {
 	assert.True(t, noAnnotation, "Specifying no required annotation should return true")
 }
 
+func TestGetTemplateInput(t *testing.T) {
+	type testObject struct {
+		metav1.ObjectMeta `json:"metadata"`
+		Foo               string `json:"foo"`
+	}
+
+	object := testObject{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				"annotation": "value",
+			},
+		},
+		Foo: "bar",
+	}
+	objectNoAnnotations := testObject{
+		Foo: "bar",
+	}
+
+	objectRaw, err := json.Marshal(object)
+	if err != nil {
+		assert.FailNowf(t, "jsonError", "Failed to marshal input: %v", err)
+	}
+
+	template, err := getTemplateInput(objectRaw)
+	if err != nil {
+		assert.FailNowf(t, "methodError", "Error in getTemplateInput: %v", err)
+	}
+
+	templateObject := testObject{}
+	err = json.Unmarshal(template, &templateObject)
+	if err != nil {
+		assert.FailNowf(t, "jsonError", "Error in unmarshall: %v", err)
+	}
+	assert.Equal(t, objectNoAnnotations, templateObject, "Object should have no annotations")
+}
+
 func TestGetDelims(t *testing.T) {
 	objectWithNoAnnotations := struct {
 		metav1.ObjectMeta `json:"metadata"`
