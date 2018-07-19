@@ -219,24 +219,27 @@ func getDelims(raw []byte) (delimiters, error) {
 
 	glog.V(6).Infof("Requested Object Annotions: %v", requestMeta.ObjectMeta.Annotations)
 
-	delims := delimiters{}
-	if left, ok := requestMeta.ObjectMeta.Annotations[leftDelimAnnotation]; !ok {
-		return delimiters{}, nil
-	} else {
-		if left == "" {
-			return delimiters{}, fmt.Errorf("left delimiter must not be empty")
-		}
-		delims.left = left
+	left, lOk := requestMeta.ObjectMeta.Annotations[leftDelimAnnotation]
+	right, rOk := requestMeta.ObjectMeta.Annotations[rightDelimAnnotation]
+
+	// If one annotation is set but not the other, this is an error
+	if lOk != rOk {
+		return delimiters{}, fmt.Errorf("must set either both %s and %s, or neither", leftDelimAnnotation, rightDelimAnnotation)
 	}
-	if right, ok := requestMeta.ObjectMeta.Annotations[rightDelimAnnotation]; !ok {
+
+	// lOk == rOk, if neither set, not an error
+	if lOk == false {
 		return delimiters{}, nil
-	} else {
-		if right == "" {
-			return delimiters{}, fmt.Errorf("right delimiter must not be empty")
-		}
-		delims.right = right
 	}
-	return delims, nil
+
+	if left == "" || right == "" {
+		return delimiters{}, fmt.Errorf("delimiters must not be empty")
+	}
+
+	return delimiters{
+		left:  left,
+		right: right,
+	}, nil
 }
 
 func errorResponse(resp *admissionv1beta1.AdmissionResponse, message string, args ...interface{}) *admissionv1beta1.AdmissionResponse {

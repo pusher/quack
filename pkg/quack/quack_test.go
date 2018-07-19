@@ -157,6 +157,24 @@ func TestGetDelims(t *testing.T) {
 			},
 		},
 	}
+	objectWithLeftDelimiter := struct {
+		metav1.ObjectMeta `json:"metadata"`
+	}{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				leftDelimAnnotation: "[[",
+			},
+		},
+	}
+	objectWithRightDelimiter := struct {
+		metav1.ObjectMeta `json:"metadata"`
+	}{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				rightDelimAnnotation: "]]",
+			},
+		},
+	}
 	objectWithEmptyDelimiters := struct {
 		metav1.ObjectMeta `json:"metadata"`
 	}{
@@ -176,6 +194,14 @@ func TestGetDelims(t *testing.T) {
 	if err != nil {
 		assert.FailNowf(t, "jsonError", "Failed to marshal 'with set delimeters' input: %v", err)
 	}
+	objectWithLeftDelimiterRaw, err := json.Marshal(objectWithLeftDelimiter)
+	if err != nil {
+		assert.FailNowf(t, "jsonError", "Failed to marshal 'with left delimeter' input: %v", err)
+	}
+	objectWithRightDelimiterRaw, err := json.Marshal(objectWithRightDelimiter)
+	if err != nil {
+		assert.FailNowf(t, "jsonError", "Failed to marshal 'with right delimeter' input: %v", err)
+	}
 	objectWithEmptyDelimitersRaw, err := json.Marshal(objectWithEmptyDelimiters)
 	if err != nil {
 		assert.FailNowf(t, "jsonError", "Failed to marshal 'with empty delimeter' input: %v", err)
@@ -189,10 +215,16 @@ func TestGetDelims(t *testing.T) {
 	if err != nil {
 		assert.FailNowf(t, "methodError", "Error in getDelims: %v", err)
 	}
-	withEmptyDelimeters, err := getDelims(objectWithEmptyDelimitersRaw)
+	withLeftDelimeter, leftErr := getDelims(objectWithLeftDelimiterRaw)
+	withRightDelimeter, rightErr := getDelims(objectWithRightDelimiterRaw)
+	withEmptyDelimeters, emptyErr := getDelims(objectWithEmptyDelimitersRaw)
 
 	assert.Equal(t, delimiters{}, withNoAnnotations, "Object with no annotations should return empty delimiters")
 	assert.Equal(t, delimiters{left: "[[", right: "]]"}, withSetDelimters, "Object with set delimiters should return `left: [[, right: ]]`")
+	assert.Equal(t, delimiters{}, withLeftDelimeter, "Object with empty delimiter should return empty delimiters")
+	assert.NotNil(t, leftErr, "Object with only left delimiter should return error")
+	assert.Equal(t, delimiters{}, withRightDelimeter, "Object with empty delimiter should return empty delimiters")
+	assert.NotNil(t, rightErr, "Object with only right delimiter should return error")
 	assert.Equal(t, delimiters{}, withEmptyDelimeters, "Object with empty delimiter should return empty delimiters")
-	assert.Equal(t, "left delimiter must not be empty", err.Error(), "Object with empty left delimiter should return error")
+	assert.NotNil(t, emptyErr, "Object with empty left delimiter should return error")
 }
