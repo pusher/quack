@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"net/http"
 
+	mergepatch "github.com/evanphx/json-patch"
 	"github.com/golang/glog"
 	"github.com/mattbaird/jsonpatch"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
@@ -18,6 +19,8 @@ import (
 
 const (
 	lastAppliedConfigPath = "/metadata/annotations/kubectl.kubernetes.io~1last-applied-configuration"
+	leftDelimAnnotation   = "quack.pusher.com/left-delim"
+	rightDelimAnnotation  = "quack.pusher.com/right-delim"
 )
 
 // AdmissionHook implements the OpenShift MutatingAdmissionHook interface.
@@ -93,10 +96,19 @@ func (ah *AdmissionHook) Admit(req *admissionv1beta1.AdmissionRequest) *admissio
 		return errorResponse(resp, "Failed to get template values: %v", err)
 	}
 
-	// Run Templating
-	glog.V(6).Infof("Input for %s: %s", requestName, string(req.Object.Raw))
+	delims, err := getDelims(req.Object.Raw)
+	if err != nil {
+		return errorResponse(resp, "Invalid delimiters: %v", err)
+	}
 
-	output, err := renderTemplate(req.Object.Raw, values)
+	templateInput, err := getTemplateInput(req.Object.Raw)
+	if err != nil {
+		return errorResponse(resp, "")
+	}
+	// Run Templating
+	glog.V(6).Infof("Input for %s: %s", requestName, templateInput)
+
+	output, err := renderTemplate(templateInput, values, delims)
 	if err != nil {
 		return errorResponse(resp, "Error rendering template: %v", err)
 	}
@@ -124,8 +136,8 @@ func (ah *AdmissionHook) Admit(req *admissionv1beta1.AdmissionRequest) *admissio
 	return resp
 }
 
-func renderTemplate(input []byte, values map[string]string) ([]byte, error) {
-	tmpl, err := template.New("object").Parse(string(input))
+func renderTemplate(input []byte, values map[string]string, delims delimiters) ([]byte, error) {
+	tmpl, err := template.New("object").Delims(delims.left, delims.right).Parse(string(input))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse template: %v", err)
 	}
@@ -168,6 +180,24 @@ func createPatch(old []byte, new []byte) ([]byte, error) {
 	return patchBytes, nil
 }
 
+func getTemplateInput(data []byte) ([]byte, error) {
+	// Remove annotations from input template
+	removeAnnotations := []byte(`[
+		{"op": "remove", "path": "/metadata/annotations"}
+	]`)
+	patch, err := mergepatch.DecodePatch(removeAnnotations)
+	if err != nil {
+		return []byte{}, fmt.Errorf("unable to decode remove annotation patch: %v", err)
+	}
+
+	// Apply patch to remove annotations
+	templateInput, err := patch.Apply(data)
+	if err != nil {
+		return []byte{}, fmt.Errorf("unable to apply remove annotation patch: %v", err)
+	}
+	return templateInput, nil
+}
+
 func requestHasAnnotation(requiredAnnotation string, raw []byte) (bool, error) {
 	if requiredAnnotation == "" {
 		return true, nil
@@ -191,6 +221,48 @@ func requestHasAnnotation(requiredAnnotation string, raw []byte) (bool, error) {
 		return true, nil
 	}
 	return false, nil
+}
+
+type delimiters struct {
+	left  string
+	right string
+}
+
+func getDelims(raw []byte) (delimiters, error) {
+	// Fetch object meta into object
+	requestMeta := struct {
+		metav1.ObjectMeta `json:"metadata"`
+	}{
+		ObjectMeta: metav1.ObjectMeta{},
+	}
+	err := json.Unmarshal(raw, &requestMeta)
+	if err != nil {
+		return delimiters{}, fmt.Errorf("failed ot unmarshal input: %v", err)
+	}
+
+	glog.V(6).Infof("Requested Object Annotions: %v", requestMeta.ObjectMeta.Annotations)
+
+	left, lOk := requestMeta.ObjectMeta.Annotations[leftDelimAnnotation]
+	right, rOk := requestMeta.ObjectMeta.Annotations[rightDelimAnnotation]
+
+	// If one annotation is set but not the other, this is an error
+	if lOk != rOk {
+		return delimiters{}, fmt.Errorf("must set either both %s and %s, or neither", leftDelimAnnotation, rightDelimAnnotation)
+	}
+
+	// lOk == rOk, if neither set, not an error
+	if lOk == false {
+		return delimiters{}, nil
+	}
+
+	if left == "" || right == "" {
+		return delimiters{}, fmt.Errorf("delimiters must not be empty")
+	}
+
+	return delimiters{
+		left:  left,
+		right: right,
+	}, nil
 }
 
 func errorResponse(resp *admissionv1beta1.AdmissionResponse, message string, args ...interface{}) *admissionv1beta1.AdmissionResponse {

@@ -14,6 +14,7 @@ Please see the [Installation](#installation) section for further detail.
   * [Deploying to Kubernetes](#deploying-to-kubernetes)
   * [Configuration](#configuration)
 * [Example Quack Template](#example-quack-template)
+  * [Custom Delimiters](#custom-delimiters)
 * [Quack vs Other Systems](#quack-vs-other-systems)
 * [Communication](#communication)
 * [Contributing](#contributing)
@@ -223,6 +224,26 @@ spec:
 When creating further Kubernetes clusters, the same template can be applied
 directly to each cluster and the resulting Kubernetes resources will be correct
 for their cluster's particular environment.
+
+### Custom Delimiters
+Each individual Quack template can specify their own delimiters for use against
+the template.
+
+Add annotations `quack.pusher.com/left-delim` and `quack.pusher.com/right-delim`
+to your template with the desired left and right template delimiters
+respectively.
+
+```yaml
+---
+apiVersion: v1
+metadata:
+  annotations:
+    quack.pusher.com/left-delim: "[["
+    quack.pusher.com/right-delim: "]]"
+...
+spec:
+  foo: "[[- .FooValue -]]"
+```
 
 ## Quack vs Other Systems
 - Quack intercepts the standard flow of `kubectl apply`. This means there are no
