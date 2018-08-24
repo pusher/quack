@@ -1,3 +1,5 @@
+<img src="./logo.svg" width=150 height=150 alt="Quack Logo"/>
+
 # Quack
 In-Cluster templating using the Go Template syntax.
 
