@@ -20,6 +20,7 @@ import (
 
 const (
 	lastAppliedConfigPath = "/metadata/annotations/kubectl.kubernetes.io~1last-applied-configuration"
+	quackAnnotationPrefix = "/metadata/annotations/quack.pusher.com"
 	leftDelimAnnotation   = "quack.pusher.com/left-delim"
 	rightDelimAnnotation  = "quack.pusher.com/right-delim"
 )
@@ -168,7 +169,7 @@ func createPatch(old []byte, new []byte) ([]byte, error) {
 	allowedOps := []jsonpatch.JsonPatchOperation{}
 	for _, op := range patch {
 		// Don't patch the lastAppliedConfig created by kubectl
-		if op.Path == lastAppliedConfigPath {
+		if op.Path == lastAppliedConfigPath || strings.HasPrefix(op.Path, quackAnnotationPrefix) {
 			continue
 		}
 		allowedOps = append(allowedOps, op)
