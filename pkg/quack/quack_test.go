@@ -152,13 +152,19 @@ func TestGetTemplateInput(t *testing.T) {
 	object := testObject{
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{
-				"annotation": "value",
+				"annotation":           "value",
+				"quack.pusher.com/foo": "bar",
 			},
 		},
 		Foo: "bar",
 	}
-	objectNoAnnotations := testObject{
+	objectNoQuackAnnotations := testObject{
 		Foo: "bar",
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				"annotation": "value",
+			},
+		},
 	}
 
 	objectRaw, err := json.Marshal(object)
@@ -176,7 +182,7 @@ func TestGetTemplateInput(t *testing.T) {
 	if err != nil {
 		assert.FailNowf(t, "jsonError", "Error in unmarshall: %v", err)
 	}
-	assert.Equal(t, objectNoAnnotations, templateObject, "Object should have no annotations")
+	assert.Equal(t, objectNoQuackAnnotations, templateObject, "Object should have no quack annotations")
 }
 
 func TestGetDelims(t *testing.T) {

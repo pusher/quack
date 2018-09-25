@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"strings"
 
 	mergepatch "github.com/evanphx/json-patch"
 	"github.com/golang/glog"
@@ -181,21 +182,27 @@ func createPatch(old []byte, new []byte) ([]byte, error) {
 }
 
 func getTemplateInput(data []byte) ([]byte, error) {
-	// Remove annotations from input template
-	removeAnnotations := []byte(`[
-		{"op": "remove", "path": "/metadata/annotations"}
-	]`)
-	patch, err := mergepatch.DecodePatch(removeAnnotations)
+	// Fetch object meta into object
+	objectMeta, err := getObjectMeta(data)
 	if err != nil {
-		return []byte{}, fmt.Errorf("unable to decode remove annotation patch: %v", err)
+		return nil, fmt.Errorf("error reading object metadata: %v", err)
 	}
 
-	// Apply patch to remove annotations
-	templateInput, err := patch.Apply(data)
-	if err != nil {
-		return []byte{}, fmt.Errorf("unable to apply remove annotation patch: %v", err)
+	var patchedData []byte
+	for annotation := range objectMeta.Annotations {
+		if strings.HasPrefix(annotation, "quack.pusher.com") {
+			// Remove annotations from input template
+			patch := []byte(fmt.Sprintf(`[
+				{"op": "remove", "path": "/metadata/annotations/%s"}
+			]`, strings.Replace(annotation, "/", "~1", -1)))
+			patchedData, err = applyPatch(data, patch)
+			if err != nil {
+				return nil, fmt.Errorf("error removing annotation %s: %v", annotation, err)
+			}
+		}
 	}
-	return templateInput, nil
+
+	return patchedData, nil
 }
 
 func requestHasAnnotation(requiredAnnotation string, raw []byte) (bool, error) {
@@ -204,6 +211,21 @@ func requestHasAnnotation(requiredAnnotation string, raw []byte) (bool, error) {
 	}
 
 	// Fetch object meta into object
+	objectMeta, err := getObjectMeta(raw)
+	if err != nil {
+		return false, fmt.Errorf("error reading object metadata: %v", err)
+	}
+
+	glog.V(6).Infof("Requested Object Annotions: %v", objectMeta.Annotations)
+
+	// Check required annotation exists in struct
+	if _, ok := objectMeta.Annotations[requiredAnnotation]; ok {
+		return true, nil
+	}
+	return false, nil
+}
+
+func getObjectMeta(raw []byte) (metav1.ObjectMeta, error) {
 	requestMeta := struct {
 		metav1.ObjectMeta `json:"metadata"`
 	}{
@@ -211,16 +233,23 @@ func requestHasAnnotation(requiredAnnotation string, raw []byte) (bool, error) {
 	}
 	err := json.Unmarshal(raw, &requestMeta)
 	if err != nil {
-		return false, fmt.Errorf("failed ot unmarshal input: %v", err)
+		return metav1.ObjectMeta{}, fmt.Errorf("failed ot unmarshal input: %v", err)
+	}
+	return requestMeta.ObjectMeta, nil
+}
+
+func applyPatch(data, patchBytes []byte) ([]byte, error) {
+	patch, err := mergepatch.DecodePatch(patchBytes)
+	if err != nil {
+		return nil, fmt.Errorf("unable to decode patch: %v", err)
 	}
 
-	glog.V(6).Infof("Requested Object Annotions: %v", requestMeta.ObjectMeta.Annotations)
-
-	// Check required annotation exists in struct
-	if _, ok := requestMeta.ObjectMeta.Annotations[requiredAnnotation]; ok {
-		return true, nil
+	// Apply patch to remove annotations
+	patchedData, err := patch.Apply(data)
+	if err != nil {
+		return nil, fmt.Errorf("unable to apply patch: %v", err)
 	}
-	return false, nil
+	return patchedData, nil
 }
 
 type delimiters struct {
