@@ -193,9 +193,10 @@ func getTemplateInput(data []byte) ([]byte, error) {
 	for annotation := range objectMeta.Annotations {
 		if strings.HasPrefix(annotation, "quack.pusher.com") {
 			// Remove annotations from input template
+			escapedAnnotation := strings.Replace(annotation, "/", "~1", -1)
 			patch := []byte(fmt.Sprintf(`[
 				{"op": "remove", "path": "/metadata/annotations/%s"}
-			]`, strings.Replace(annotation, "/", "~1", -1)))
+			]`, escapedAnnotation))
 			patchedData, err = applyPatch(data, patch)
 			if err != nil {
 				return nil, fmt.Errorf("error removing annotation %s: %v", annotation, err)
