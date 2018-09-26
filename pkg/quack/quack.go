@@ -217,7 +217,7 @@ func requestHasAnnotation(requiredAnnotation string, raw []byte) (bool, error) {
 		return false, fmt.Errorf("error reading object metadata: %v", err)
 	}
 
-	glog.V(6).Infof("Requested Object Annotions: %v", objectMeta.Annotations)
+	glog.V(6).Infof("Requested Object Annotations: %v", objectMeta.Annotations)
 
 	// Check required annotation exists in struct
 	if _, ok := objectMeta.Annotations[requiredAnnotation]; ok {
@@ -234,7 +234,7 @@ func getObjectMeta(raw []byte) (metav1.ObjectMeta, error) {
 	}
 	err := json.Unmarshal(raw, &requestMeta)
 	if err != nil {
-		return metav1.ObjectMeta{}, fmt.Errorf("failed ot unmarshal input: %v", err)
+		return metav1.ObjectMeta{}, fmt.Errorf("failed to unmarshal input: %v", err)
 	}
 	return requestMeta.ObjectMeta, nil
 }
@@ -270,7 +270,7 @@ func getDelims(raw []byte) (delimiters, error) {
 		return delimiters{}, fmt.Errorf("failed ot unmarshal input: %v", err)
 	}
 
-	glog.V(6).Infof("Requested Object Annotions: %v", requestMeta.ObjectMeta.Annotations)
+	glog.V(6).Infof("Requested Object Annotations: %v", requestMeta.ObjectMeta.Annotations)
 
 	left, lOk := requestMeta.ObjectMeta.Annotations[leftDelimAnnotation]
 	right, rOk := requestMeta.ObjectMeta.Annotations[rightDelimAnnotation]
