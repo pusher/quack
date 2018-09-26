@@ -48,6 +48,42 @@ func TestRenderTemplate(t *testing.T) {
 	assert.Equal(t, values["B"], output.Beta, "Value for B should be substituted for Beta output")
 }
 
+func TestRenderTemplateDoesntRemoveQuackAnnotations(t *testing.T) {
+	values := make(map[string]string)
+	input := struct {
+		ObjectMeta metav1.ObjectMeta `json:"metadata"`
+	}{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				"quack.pusher.com/foo": "bar",
+			},
+		},
+	}
+
+	inputBytes, err := json.Marshal(input)
+	if err != nil {
+		assert.FailNowf(t, "jsonError", "Failed to marshal test input: %v", err)
+	}
+
+	fmt.Printf("Template Test Input: %s\n", string(inputBytes))
+
+	outputBytes, err := renderTemplate(inputBytes, values, delimiters{})
+	if err != nil {
+		assert.FailNowf(t, "methodError", "Failed rendering template: %v", err)
+	}
+
+	fmt.Printf("Template Test Output: %s\n", string(outputBytes))
+	output := struct {
+		ObjectMeta metav1.ObjectMeta `json:"metadata"`
+	}{}
+	err = json.Unmarshal(outputBytes, &output)
+	if err != nil {
+		assert.FailNowf(t, "jsonError", "Failed to unmarshal template output: %v", err)
+	}
+
+	assert.Equal(t, input.ObjectMeta.Annotations, output.ObjectMeta.Annotations, "Annotations should not be changed")
+}
+
 func TestRenderTemplateWithDelims(t *testing.T) {
 	values := map[string]string{
 		"A": "alpha",
@@ -152,13 +188,19 @@ func TestGetTemplateInput(t *testing.T) {
 	object := testObject{
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{
-				"annotation": "value",
+				"annotation":           "value",
+				"quack.pusher.com/foo": "bar",
 			},
 		},
 		Foo: "bar",
 	}
-	objectNoAnnotations := testObject{
+	objectNoQuackAnnotations := testObject{
 		Foo: "bar",
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				"annotation": "value",
+			},
+		},
 	}
 
 	objectRaw, err := json.Marshal(object)
@@ -176,7 +218,7 @@ func TestGetTemplateInput(t *testing.T) {
 	if err != nil {
 		assert.FailNowf(t, "jsonError", "Error in unmarshall: %v", err)
 	}
-	assert.Equal(t, objectNoAnnotations, templateObject, "Object should have no annotations")
+	assert.Equal(t, objectNoQuackAnnotations, templateObject, "Object should have no quack annotations")
 }
 
 func TestGetDelims(t *testing.T) {

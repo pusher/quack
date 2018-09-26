@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"strings"
 
 	mergepatch "github.com/evanphx/json-patch"
 	"github.com/golang/glog"
@@ -19,6 +20,7 @@ import (
 
 const (
 	lastAppliedConfigPath = "/metadata/annotations/kubectl.kubernetes.io~1last-applied-configuration"
+	quackAnnotationPrefix = "/metadata/annotations/quack.pusher.com"
 	leftDelimAnnotation   = "quack.pusher.com/left-delim"
 	rightDelimAnnotation  = "quack.pusher.com/right-delim"
 )
@@ -167,7 +169,7 @@ func createPatch(old []byte, new []byte) ([]byte, error) {
 	allowedOps := []jsonpatch.JsonPatchOperation{}
 	for _, op := range patch {
 		// Don't patch the lastAppliedConfig created by kubectl
-		if op.Path == lastAppliedConfigPath {
+		if op.Path == lastAppliedConfigPath || strings.HasPrefix(op.Path, quackAnnotationPrefix) {
 			continue
 		}
 		allowedOps = append(allowedOps, op)
@@ -181,21 +183,28 @@ func createPatch(old []byte, new []byte) ([]byte, error) {
 }
 
 func getTemplateInput(data []byte) ([]byte, error) {
-	// Remove annotations from input template
-	removeAnnotations := []byte(`[
-		{"op": "remove", "path": "/metadata/annotations"}
-	]`)
-	patch, err := mergepatch.DecodePatch(removeAnnotations)
+	// Fetch object meta into object
+	objectMeta, err := getObjectMeta(data)
 	if err != nil {
-		return []byte{}, fmt.Errorf("unable to decode remove annotation patch: %v", err)
+		return nil, fmt.Errorf("error reading object metadata: %v", err)
 	}
 
-	// Apply patch to remove annotations
-	templateInput, err := patch.Apply(data)
-	if err != nil {
-		return []byte{}, fmt.Errorf("unable to apply remove annotation patch: %v", err)
+	var patchedData []byte
+	for annotation := range objectMeta.Annotations {
+		if strings.HasPrefix(annotation, "quack.pusher.com") {
+			// Remove annotations from input template
+			escapedAnnotation := strings.Replace(annotation, "/", "~1", -1)
+			patch := []byte(fmt.Sprintf(`[
+				{"op": "remove", "path": "/metadata/annotations/%s"}
+			]`, escapedAnnotation))
+			patchedData, err = applyPatch(data, patch)
+			if err != nil {
+				return nil, fmt.Errorf("error removing annotation %s: %v", annotation, err)
+			}
+		}
 	}
-	return templateInput, nil
+
+	return patchedData, nil
 }
 
 func requestHasAnnotation(requiredAnnotation string, raw []byte) (bool, error) {
@@ -204,6 +213,21 @@ func requestHasAnnotation(requiredAnnotation string, raw []byte) (bool, error) {
 	}
 
 	// Fetch object meta into object
+	objectMeta, err := getObjectMeta(raw)
+	if err != nil {
+		return false, fmt.Errorf("error reading object metadata: %v", err)
+	}
+
+	glog.V(6).Infof("Requested Object Annotations: %v", objectMeta.Annotations)
+
+	// Check required annotation exists in struct
+	if _, ok := objectMeta.Annotations[requiredAnnotation]; ok {
+		return true, nil
+	}
+	return false, nil
+}
+
+func getObjectMeta(raw []byte) (metav1.ObjectMeta, error) {
 	requestMeta := struct {
 		metav1.ObjectMeta `json:"metadata"`
 	}{
@@ -211,16 +235,23 @@ func requestHasAnnotation(requiredAnnotation string, raw []byte) (bool, error) {
 	}
 	err := json.Unmarshal(raw, &requestMeta)
 	if err != nil {
-		return false, fmt.Errorf("failed ot unmarshal input: %v", err)
+		return metav1.ObjectMeta{}, fmt.Errorf("failed to unmarshal input: %v", err)
+	}
+	return requestMeta.ObjectMeta, nil
+}
+
+func applyPatch(data, patchBytes []byte) ([]byte, error) {
+	patch, err := mergepatch.DecodePatch(patchBytes)
+	if err != nil {
+		return nil, fmt.Errorf("unable to decode patch: %v", err)
 	}
 
-	glog.V(6).Infof("Requested Object Annotions: %v", requestMeta.ObjectMeta.Annotations)
-
-	// Check required annotation exists in struct
-	if _, ok := requestMeta.ObjectMeta.Annotations[requiredAnnotation]; ok {
-		return true, nil
+	// Apply patch to remove annotations
+	patchedData, err := patch.Apply(data)
+	if err != nil {
+		return nil, fmt.Errorf("unable to apply patch: %v", err)
 	}
-	return false, nil
+	return patchedData, nil
 }
 
 type delimiters struct {
@@ -240,7 +271,7 @@ func getDelims(raw []byte) (delimiters, error) {
 		return delimiters{}, fmt.Errorf("failed ot unmarshal input: %v", err)
 	}
 
-	glog.V(6).Infof("Requested Object Annotions: %v", requestMeta.ObjectMeta.Annotations)
+	glog.V(6).Infof("Requested Object Annotations: %v", requestMeta.ObjectMeta.Annotations)
 
 	left, lOk := requestMeta.ObjectMeta.Annotations[leftDelimAnnotation]
 	right, rOk := requestMeta.ObjectMeta.Annotations[rightDelimAnnotation]
