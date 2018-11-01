@@ -32,6 +32,7 @@ type AdmissionHook struct {
 	ValuesMapName      string                // Source of templating values
 	ValuesMapNamespace string                // Namespace the configmap lives in
 	RequiredAnnotation string                // Annotation required before templating
+	IgnoredPaths       []string              // Paths to not patch
 }
 
 // Initialize configures the AdmissionHook.
@@ -118,7 +119,7 @@ func (ah *AdmissionHook) Admit(req *admissionv1beta1.AdmissionRequest) *admissio
 
 	// Create a JSON Patch
 	// https://tools.ietf.org/html/rfc6902
-	patchBytes, err := createPatch(req.Object.Raw, output)
+	patchBytes, err := ah.createPatch(req.Object.Raw, output)
 	if err != nil {
 		return errorResponse(resp, "Error creating patch: %v", err)
 	}
@@ -160,7 +161,7 @@ func getValues(client *kubernetes.Clientset, namespace string, name string) (map
 	return cm.Data, nil
 }
 
-func createPatch(old []byte, new []byte) ([]byte, error) {
+func (ah *AdmissionHook) createPatch(old []byte, new []byte) ([]byte, error) {
 	patch, err := jsonpatch.CreatePatch(old, new)
 	if err != nil {
 		return nil, fmt.Errorf("error calculating patch: %v", err)
@@ -169,7 +170,7 @@ func createPatch(old []byte, new []byte) ([]byte, error) {
 	allowedOps := []jsonpatch.JsonPatchOperation{}
 	for _, op := range patch {
 		// Don't patch the lastAppliedConfig created by kubectl
-		if op.Path == lastAppliedConfigPath || strings.HasPrefix(op.Path, quackAnnotationPrefix) {
+		if op.Path == lastAppliedConfigPath || strings.HasPrefix(op.Path, quackAnnotationPrefix) || contains(ah.IgnoredPaths, op.Path) {
 			continue
 		}
 		allowedOps = append(allowedOps, op)
@@ -311,4 +312,13 @@ func podID(namespace string, name string) string {
 		return fmt.Sprintf("%s/%s", namespace, name)
 	}
 	return name
+}
+
+func contains(list []string, item string) bool {
+	for _, l := range list {
+		if l == item {
+			return true
+		}
+	}
+	return false
 }
