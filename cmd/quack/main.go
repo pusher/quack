@@ -24,6 +24,7 @@ func main() {
 	flagset.StringVarP(&ah.ValuesMapName, "values-configmap", "c", "quack-values", "Defines the name of the ConfigMap to load templating values from")
 	flagset.StringVarP(&ah.ValuesMapNamespace, "values-configmap-namespace", "n", "quack", "Defines the namespace to load the Values ConfigMap from")
 	flagset.StringVarP(&ah.RequiredAnnotation, "required-annotation", "a", "", "Require annotation on objects before templating them")
+	flagset.StringSliceVar(&ah.IgnoredPaths, "ignore-path", []string{}, "Ignore patches that are applied to this path")
 
 	// Run server
 	runAdmissionServer(flagset, ah)
