@@ -170,7 +170,10 @@ func (ah *AdmissionHook) createPatch(old []byte, new []byte) ([]byte, error) {
 	allowedOps := []jsonpatch.JsonPatchOperation{}
 	for _, op := range patch {
 		// Don't patch the lastAppliedConfig created by kubectl
-		if op.Path == lastAppliedConfigPath || strings.HasPrefix(op.Path, quackAnnotationPrefix) || contains(ah.IgnoredPaths, op.Path) {
+		if op.Path == lastAppliedConfigPath ||
+			strings.HasPrefix(op.Path, quackAnnotationPrefix) ||
+			contains(ah.IgnoredPaths, op.Path) ||
+			strings.HasPrefix(op.Path, "/status") {
 			continue
 		}
 		allowedOps = append(allowedOps, op)
