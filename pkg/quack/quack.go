@@ -190,7 +190,15 @@ func getTemplateInput(data []byte) ([]byte, error) {
 		return nil, fmt.Errorf("error reading object metadata: %v", err)
 	}
 
-	var patchedData []byte
+	// We should not modify the status of objects
+	patch := []byte(fmt.Sprintf(`[
+		{"op": "remove", "path": "/status"}
+	]`))
+	data, err = applyPatch(data, patch)
+	if err != nil {
+		return nil, fmt.Errorf("error removing status: %v", err)
+	}
+
 	for annotation := range objectMeta.Annotations {
 		if strings.HasPrefix(annotation, "quack.pusher.com") {
 			// Remove annotations from input template
@@ -198,14 +206,14 @@ func getTemplateInput(data []byte) ([]byte, error) {
 			patch := []byte(fmt.Sprintf(`[
 				{"op": "remove", "path": "/metadata/annotations/%s"}
 			]`, escapedAnnotation))
-			patchedData, err = applyPatch(data, patch)
+			data, err = applyPatch(data, patch)
 			if err != nil {
 				return nil, fmt.Errorf("error removing annotation %s: %v", annotation, err)
 			}
 		}
 	}
 
-	return patchedData, nil
+	return data, nil
 }
 
 func requestHasAnnotation(requiredAnnotation string, raw []byte) (bool, error) {
