@@ -106,7 +106,7 @@ func (ah *AdmissionHook) Admit(req *admissionv1beta1.AdmissionRequest) *admissio
 
 	templateInput, err := getTemplateInput(req.Object.Raw)
 	if err != nil {
-		return errorResponse(resp, "")
+		return errorResponse(resp, "Error creating template input: %v", err)
 	}
 	// Run Templating
 	glog.V(6).Infof("Input for %s: %s", requestName, templateInput)
