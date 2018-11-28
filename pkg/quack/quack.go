@@ -260,7 +260,7 @@ func getObjectMeta(raw []byte) (metav1.ObjectMeta, error) {
 
 func requestHasStatus(raw []byte) (bool, error) {
 	requestStatus := struct {
-		Status map[string]string `json:"status"`
+		Status map[string]interface{} `json:"status"`
 	}{}
 	err := json.Unmarshal(raw, &requestStatus)
 	if err != nil {

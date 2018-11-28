@@ -346,7 +346,8 @@ func TestGetDelims(t *testing.T) {
 func TestRequestHasStatus(t *testing.T) {
 	withStatus := `{
 			"status": {
-				"foo": "bar"
+				"foo": "bar",
+				"baz": 3
 			}
 		}`
 	hasStatus, err := requestHasStatus([]byte(withStatus))
