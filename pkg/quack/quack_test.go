@@ -342,3 +342,21 @@ func TestGetDelims(t *testing.T) {
 	assert.Equal(t, delimiters{}, withEmptyDelimeters, "Object with empty delimiter should return empty delimiters")
 	assert.NotNil(t, emptyErr, "Object with empty left delimiter should return error")
 }
+
+func TestRequestHasStatus(t *testing.T) {
+	withStatus := `{
+			"status": {
+				"foo": "bar"
+			}
+		}`
+	hasStatus, err := requestHasStatus([]byte(withStatus))
+	assert.Equal(t, nil, err, "Error should not have occurred")
+	assert.Equal(t, true, hasStatus, "Expected object with status to return true")
+
+	withoutStatus := `{
+				"foo": "bar"
+			}`
+	hasStatus, err = requestHasStatus([]byte(withoutStatus))
+	assert.Equal(t, nil, err, "Error should not have occurred")
+	assert.Equal(t, false, hasStatus, "Expected object without status to return false")
+}
