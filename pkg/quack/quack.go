@@ -106,7 +106,7 @@ func (ah *AdmissionHook) Admit(req *admissionv1beta1.AdmissionRequest) *admissio
 
 	templateInput, err := getTemplateInput(req.Object.Raw)
 	if err != nil {
-		return errorResponse(resp, "")
+		return errorResponse(resp, "Error creating template input: %v", err)
 	}
 	// Run Templating
 	glog.V(6).Infof("Input for %s: %s", requestName, templateInput)
@@ -194,12 +194,18 @@ func getTemplateInput(data []byte) ([]byte, error) {
 	}
 
 	// We should not modify the status of objects
-	patch := []byte(fmt.Sprintf(`[
-		{"op": "remove", "path": "/status"}
-	]`))
-	data, err = applyPatch(data, patch)
+	hasStatus, err := requestHasStatus(data)
 	if err != nil {
-		return nil, fmt.Errorf("error removing status: %v", err)
+		return nil, fmt.Errorf("error reading object status: %v", err)
+	}
+	if hasStatus {
+		patch := []byte(fmt.Sprintf(`[
+			{"op": "remove", "path": "/status"}
+		]`))
+		data, err = applyPatch(data, patch)
+		if err != nil {
+			return nil, fmt.Errorf("error removing status: %v", err)
+		}
 	}
 
 	for annotation := range objectMeta.Annotations {
@@ -250,6 +256,17 @@ func getObjectMeta(raw []byte) (metav1.ObjectMeta, error) {
 		return metav1.ObjectMeta{}, fmt.Errorf("failed to unmarshal input: %v", err)
 	}
 	return requestMeta.ObjectMeta, nil
+}
+
+func requestHasStatus(raw []byte) (bool, error) {
+	requestStatus := struct {
+		Status map[string]interface{} `json:"status"`
+	}{}
+	err := json.Unmarshal(raw, &requestStatus)
+	if err != nil {
+		return false, fmt.Errorf("failed to unmarshal input: %v", err)
+	}
+	return requestStatus.Status != nil, nil
 }
 
 func applyPatch(data, patchBytes []byte) ([]byte, error) {
