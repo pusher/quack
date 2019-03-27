@@ -104,7 +104,7 @@ func (ah *AdmissionHook) Admit(req *admissionv1beta1.AdmissionRequest) *admissio
 		return errorResponse(resp, "Invalid delimiters: %v", err)
 	}
 
-	templateInput, err := getTemplateInput(req.Object.Raw)
+	templateInput, err := getTemplateInput(req.Object.Raw, ah.IgnoredPaths)
 	if err != nil {
 		return errorResponse(resp, "Error creating template input: %v", err)
 	}
@@ -186,7 +186,7 @@ func (ah *AdmissionHook) createPatch(old []byte, new []byte) ([]byte, error) {
 	return patchBytes, nil
 }
 
-func getTemplateInput(data []byte) ([]byte, error) {
+func getTemplateInput(data []byte, ignoredPaths []string) ([]byte, error) {
 	// Fetch object meta into object
 	objectMeta, err := getObjectMeta(data)
 	if err != nil {
@@ -205,6 +205,16 @@ func getTemplateInput(data []byte) ([]byte, error) {
 		data, err = applyPatch(data, patch)
 		if err != nil {
 			return nil, fmt.Errorf("error removing status: %v", err)
+		}
+	}
+
+	for _, path := range ignoredPaths {
+		patch := []byte(fmt.Sprintf(`[
+			{"op": "remove", "path": "%s"}
+		]`, path))
+		data, err = applyPatch(data, patch)
+		if err != nil {
+			return nil, fmt.Errorf("error removing %s: %v", path, err)
 		}
 	}
 
