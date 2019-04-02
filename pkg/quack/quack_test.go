@@ -203,13 +203,14 @@ func TestGetTemplateInput(t *testing.T) {
 			},
 		},
 	}
+	ignoredPaths := []string{}
 
 	objectRaw, err := json.Marshal(object)
 	if err != nil {
 		assert.FailNowf(t, "jsonError", "Failed to marshal input: %v", err)
 	}
 
-	template, err := getTemplateInput(objectRaw)
+	template, err := getTemplateInput(objectRaw, ignoredPaths)
 	if err != nil {
 		assert.FailNowf(t, "methodError", "Error in getTemplateInput: %v", err)
 	}
@@ -220,6 +221,50 @@ func TestGetTemplateInput(t *testing.T) {
 		assert.FailNowf(t, "jsonError", "Error in unmarshall: %v", err)
 	}
 	assert.Equal(t, objectNoQuackAnnotations, templateObject, "Object should have no quack annotations")
+}
+
+func TestGetTemplateInputRemovesIgnoredPaths(t *testing.T) {
+	type testObject struct {
+		metav1.ObjectMeta `json:"metadata"`
+		Foo               string            `json:"foo"`
+		Status            map[string]string `json:"status"`
+	}
+
+	object := testObject{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				"annotation":       "value",
+				"other/annotation": "bar",
+			},
+		},
+		Foo: "bar",
+	}
+	objectNoOtherAnnotation := testObject{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				"annotation": "value",
+			},
+		},
+		Foo: "bar",
+	}
+	ignoredPaths := []string{"/metadata/annotations/other~1annotation"}
+
+	objectRaw, err := json.Marshal(object)
+	if err != nil {
+		assert.FailNowf(t, "jsonError", "Failed to marshal input: %v", err)
+	}
+
+	template, err := getTemplateInput(objectRaw, ignoredPaths)
+	if err != nil {
+		assert.FailNowf(t, "methodError", "Error in getTemplateInput: %v", err)
+	}
+
+	templateObject := testObject{}
+	err = json.Unmarshal(template, &templateObject)
+	if err != nil {
+		assert.FailNowf(t, "jsonError", "Error in unmarshall: %v", err)
+	}
+	assert.Equal(t, objectNoOtherAnnotation, templateObject, "Object should have no ignored paths")
 }
 
 func TestGetTemplateInputRemovesStatus(t *testing.T) {
@@ -243,8 +288,9 @@ func TestGetTemplateInputRemovesStatus(t *testing.T) {
 	if err != nil {
 		assert.FailNowf(t, "jsonError", "Failed to marshal input: %v", err)
 	}
+	ignoredPaths := []string{}
 
-	template, err := getTemplateInput(objectRaw)
+	template, err := getTemplateInput(objectRaw, ignoredPaths)
 	if err != nil {
 		assert.FailNowf(t, "methodError", "Error in getTemplateInput: %v", err)
 	}
