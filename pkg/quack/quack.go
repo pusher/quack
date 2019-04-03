@@ -212,9 +212,11 @@ func getTemplateInput(data []byte, ignoredPaths []string) ([]byte, error) {
 		patch := []byte(fmt.Sprintf(`[
 			{"op": "remove", "path": "%s"}
 		]`, path))
-		data, err = applyPatch(data, patch)
+		newData, err := applyPatch(data, patch)
 		if err != nil && !nonExistentPath(err) {
 			return nil, fmt.Errorf("error removing %s: %v", path, err)
+		} else if newData != nil {
+			data = newData
 		}
 	}
 
