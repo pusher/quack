@@ -15,3 +15,9 @@
 
 # Vendored dependencies
 vendor/
+
+# binary
+quack
+
+# env file
+.env
