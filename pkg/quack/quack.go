@@ -46,6 +46,11 @@ func (ah *AdmissionHook) Initialize(kubeClientConfig *restclient.Config, stopCh 
 	}
 	ah.client = client
 
+	// Add lastAppliedConfigPath to ignored paths, unless it's already present
+	if !contains(ah.IgnoredPaths, lastAppliedConfigPath) {
+		ah.IgnoredPaths = append(ah.IgnoredPaths, lastAppliedConfigPath)
+	}
+
 	glog.Info("Webhook Initialization Complete.")
 	return nil
 }
