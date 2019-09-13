@@ -34,7 +34,7 @@ vet: vendor
 	$(GO) vet ./cmd/... ./pkg/...
 
 .PHONY: lint
-lint:
+lint: vendor
 	@ echo -e "$(GREEN)Linting code$(NC)"
 	$(LINTER) run --disable-all \
 		--exclude-use-default=false \
