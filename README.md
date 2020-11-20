@@ -2,6 +2,9 @@
 
 # Quack
 
+> NOTE: this repository is currently **UNMAINTAINED** and is looking for new owner(s).
+> See [#19](/../../issues/19) for more information.
+
 In-Cluster templating using the Go Template syntax.
 
 **Note:** This is a proof of concept in the early alpha stage.
